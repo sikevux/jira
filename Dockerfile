@@ -1,17 +1,31 @@
-FROM adoptopenjdk/openjdk8-openj9:alpine-jre
+FROM adoptopenjdk/openjdk11-openj9:alpine-jre
 # this image already contains glibc
 
-ENV JIRA_USER=jira                              \
-    JIRA_GROUP=jira                             \
-    CONTAINER_UID=1000                          \
-    CONTAINER_GID=1000                          \
-    JIRA_CONTEXT_PATH=ROOT                      \
-    JIRA_HOME=/var/atlassian/jira               \
-    JIRA_INSTALL=/opt/jira                      \
-    JIRA_SCRIPTS=/usr/local/share/atlassian     \
-    JRE_HOME=$JAVA_HOME                         \
-    # Fix for this issue - https://jira.atlassian.com/browse/JRASERVER-46152 \
-    _RUNJAVA=java
+ENV JIRA_USER=jira
+ENV JIRA_GROUP=jira
+ENV CONTAINER_UID=1000
+ENV CONTAINER_GID=1000
+ENV JIRA_CONTEXT_PATH=ROOT
+ENV JIRA_HOME=/var/atlassian/jira
+ENV JIRA_INSTALL=/opt/jira
+ENV JIRA_SCRIPTS=/usr/local/share/atlassian
+ENV JRE_HOME=$JAVA_HOME
+# Fix for this issue - https://jira.atlassian.com/browse/JRASERVER-46152
+ENV _RUNJAVA=java
+ENV JIRA_LIB=$JIRA_INSTALL/lib
+ENV MYSQL_DRIVER_VERSION=2.4.2
+ENV MYSQL_FILE=mariadb-java-client-$MYSQL_DRIVER_VERSION.jar
+ENV MYSQL_DOWNLOAD_URL=https://downloads.mariadb.com/Connectors/java/connector-java-$MYSQL_DRIVER_VERSION/$MYSQL_FILE
+ENV POSTGRESQL_DRIVER_VERSION=42.2.6
+ENV POSTGRESQL_FILE=postgresql-$POSTGRESQL_DRIVER_VERSION.jar
+ENV POSTGRESQL_DOWNLOAD_URL=https://jdbc.postgresql.org/download/$POSTGRESQL_FILE
+ENV DOCKERIZE_VERSION=v0.6.1
+ENV DOCKERIZE_DOWNLOAD_URL=https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+ENV LE_DOWNLOAD_URL=https://letsencrypt.org/certs/
+ENV LE_CROSS_3=lets-encrypt-x3-cross-signed.der
+ENV KEYSTORE=$JRE_HOME/lib/security/cacerts
+ENV JIRA_DOWNLOAD_URL=https://www.atlassian.com/software/jira/downloads/binary/
+ENV SSLPOKE_URL=https://confluence.atlassian.com/kb/files/779355358/779355357/1/1441897666313/SSLPoke.class
 
 COPY bin $JIRA_SCRIPTS
 
@@ -106,34 +120,77 @@ ARG JIRA_VERSION=8.6.0
 ARG LANG_LANGUAGE=en
 ARG LANG_COUNTRY=US
 
-RUN /usr/glibc-compat/bin/localedef -i ${LANG_LANGUAGE}_${LANG_COUNTRY} -f UTF-8 ${LANG_LANGUAGE}_${LANG_COUNTRY}.UTF-8
+COPY bin $JIRA_SCRIPTS
 
-# Product
-ARG JIRA_PRODUCT=jira-software
+WORKDIR /tmp
 
-RUN wget -O jira.bin https://www.atlassian.com/software/jira/downloads/binary/atlassian-$JIRA_PRODUCT-$JIRA_VERSION-x64.bin \
-    && chmod +x jira.bin \
-    # JAVA_TOOL_OPTIONS, JAVA_HOME, and PATH already get set by AdoptOpenJDK image \
-    # Since installer uses Oracle JDK 8, it does not recognize 'IgnoreUnrecognizedVMOptions' or 'UseContainerSupport' in JAVA_TOOL_OPTIONS \
-    && export JAVA_TOOL_OPTIONS="" \
-    # Run installer \
-    && ./jira.bin -q -varfile $JIRA_SCRIPTS/response.varfile   \
-    # remove installer JRE and link to AdoptOpenJDK            \
-    && rm -rf $JIRA_INSTALL/jre                                \
-    && ln -s $JAVA_HOME $JIRA_INSTALL/jre                      \
-    # Add user must come after installer to avoid this:        \
-    # https://confluence.atlassian.com/jirakb/how-to-set-the-user-jira-to-run-in-linux-433390559.html \
-    && adduser -u $CONTAINER_UID                               \
-        -G $JIRA_GROUP                                         \
-        -h /home/$JIRA_USER                                    \
-        -s /bin/bash                                           \
-        -S $JIRA_USER                                          \
-    # Install Atlassian SSL tool - mainly to be able to create application links with other Atlassian tools, which run LE SSL certificates \
-    && wget -O /home/$JIRA_USER/SSLPoke.class https://confluence.atlassian.com/kb/files/779355358/779355357/1/1441897666313/SSLPoke.class  \
-    # Set permissions                                                                          \
-    && chown -R $JIRA_USER:$JIRA_GROUP $JIRA_HOME $JIRA_INSTALL $JIRA_SCRIPTS /home/$JIRA_USER \
-    # Clean caches and tmps                                                                    \
-    && rm -rf /var/cache/apk/* /tmp/* /var/log/*
+RUN apk add --update --no-cache                                                \
+           bash                                                                \
+           su-exec                                                             \
+           gzip                                                                \
+           nano                                                                \
+           tini                                                                \
+           curl                                                                \
+           xmlstarlet                                                          \
+           fontconfig                                                          \
+           msttcorefonts-installer                                             \
+           ttf-dejavu                                                          \
+           ghostscript                                                         \
+           graphviz                                                            \
+           motif
+RUN update-ms-fonts
+RUN fc-cache -f
+RUN mkdir -p $JIRA_HOME $JIRA_INSTALL $JIRA_LIB
+RUN addgroup -g $CONTAINER_GID $JIRA_GROUP
+
+# Install Dockerize
+RUN curl -Lo dockerize.tar.gz $DOCKERIZE_DOWNLOAD_URL
+RUN tar xf dockerize.tar.gz -C /usr/local/bin
+
+# Let's Encrypt
+# Adding Let's Encrypt CA to truststore
+# Only adding X3 as X4 will only be used as backup. If that happens
+# you can just rebuild the image
+RUN curl -LO $LE_DOWNLOAD_URL/$LE_CROSS_3
+RUN keytool -trustcacerts -keystore $KEYSTORE -storepass changeit -noprompt    \
+            -importcert -alias letsencryptauthorityx3 -file $LE_CROSS_3
+
+# Download and install Jira
+RUN curl -LO $JIRA_DOWNLOAD_URL/atlassian-$JIRA_PRODUCT-$JIRA_VERSION.tar.gz
+RUN tar xf atlassian-$JIRA_PRODUCT-$JIRA_VERSION.tar.gz                        \
+        -C $JIRA_INSTALL --strip 1
+RUN rm -rf $JIRA_INSTALL/jre && ln -s $JAVA_HOME $JIRA_INSTALL/jre
+
+# Add user must come after installer to avoid this:                            \
+# https://confluence.atlassian.com/jirakb/how-to-set-the-user-jira-to-run-in-linux-433390559.html \
+RUN adduser -u $CONTAINER_UID                                                  \
+        -G $JIRA_GROUP                                                         \
+        -h /home/$JIRA_USER                                                    \
+        -s /bin/bash                                                           \
+        -S $JIRA_USER
+
+# Install Atlassian SSL tool - mainly to be able to create application links
+# with other Atlassian tools, which run LE SSL certificates
+RUN curl -Lo /home/$JIRA_USER/SSLPoke.class $SSLPOKE_URL
+
+# Set permissions
+RUN chown -R $JIRA_USER:$JIRA_GROUP                                            \
+             $JIRA_HOME                                                        \
+             $JIRA_INSTALL                                                     \
+             $JIRA_SCRIPTS                                                     \
+             /home/$JIRA_USER
+
+# Install database drivers
+RUN rm -f $JIRA_LIB/mysql-connector-java*.jar
+RUN curl -Lo $JIRA_LIB/$MYSQL_FILE $MYSQL_DOWNLOAD_URL
+RUN rm -f $JIRA_LIB/postgresql-*.jar
+RUN curl -Lo $JIRA_LIB/$POSTGRESQL_FILE $POSTGRESQL_DOWNLOAD_URL
+
+# Remove build packages
+RUN apk del --no-cache msttcorefonts-installer
+
+# Clean caches and tmps
+RUN rm -rf /var/cache/apk/* /tmp/* /var/log/*
 
 USER $JIRA_USER
 WORKDIR $JIRA_HOME
@@ -142,7 +199,8 @@ EXPOSE 8080
 ENTRYPOINT ["/sbin/tini","--","/usr/local/share/atlassian/docker-entrypoint.sh"]
 CMD ["jira"]
 
-# This is set by the build script. Keep this at the end of the Dockerfile to preserve the build cache
+# This is set by the build script.
+# Keep this at the end of the Dockerfile to preserve the build cache
 ARG BUILD_DATE
 
 # Image Metadata
