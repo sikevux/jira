@@ -1,10 +1,12 @@
 FROM adoptopenjdk/openjdk11-openj9:alpine-jre
 # this image already contains glibc
 
+ARG UID=1000
+ARG GID=1000
 ENV JIRA_USER=jira
 ENV JIRA_GROUP=jira
-ENV CONTAINER_UID=1000
-ENV CONTAINER_GID=1000
+ENV CONTAINER_UID=$UID
+ENV CONTAINER_GID=$GID
 ENV JIRA_CONTEXT_PATH=ROOT
 ENV JIRA_HOME=/var/atlassian/jira
 ENV JIRA_INSTALL=/opt/jira
