@@ -40,8 +40,6 @@ ENV MYSQL_DOWNLOAD_URL=https://downloads.mariadb.com/Connectors/java/connector-j
 ENV POSTGRESQL_DRIVER_VERSION=42.2.6
 ENV POSTGRESQL_FILE=postgresql-$POSTGRESQL_DRIVER_VERSION.jar
 ENV POSTGRESQL_DOWNLOAD_URL=https://jdbc.postgresql.org/download/$POSTGRESQL_FILE
-ENV DOCKERIZE_VERSION=v0.6.1
-ENV DOCKERIZE_DOWNLOAD_URL=https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 ENV LE_DOWNLOAD_URL=https://letsencrypt.org/certs/
 ENV LE_CROSS_3=lets-encrypt-x3-cross-signed.der
 ENV KEYSTORE=$JRE_HOME/lib/security/cacerts
@@ -145,10 +143,6 @@ COPY bin $JIRA_SCRIPTS
 
 RUN mkdir -p $JIRA_HOME $JIRA_INSTALL $JIRA_LIB
 RUN addgroup -g $CONTAINER_GID $JIRA_GROUP
-
-# Install Dockerize
-RUN curl -Lo dockerize.tar.gz $DOCKERIZE_DOWNLOAD_URL
-RUN tar xf dockerize.tar.gz -C /usr/local/bin
 
 # Let's Encrypt
 # Adding Let's Encrypt CA to truststore

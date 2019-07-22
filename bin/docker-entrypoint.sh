@@ -46,7 +46,9 @@ function waitForDB() {
   local waitTimeout=${DOCKER_WAIT_TIMEOUT:-60}
   local waitIntervalTime=${DOCKER_WAIT_INTERVAL:-5}
   if [ -n "${waitHost}" ] && [ -n "${waitPort}" ]; then
-    dockerize -timeout ${waitTimeout}s -wait-retry-interval ${waitIntervalTime}s -wait tcp://${waitHost}:${waitPort}
+      while ! timeout ${waitTimeout} bash -c "cat /dev/null > /dev/tcp/${waitHost}:${waitPort}" &>/dev/null; do
+	  sleep ${waitIntervalTime}
+      done
   fi
 }
 
