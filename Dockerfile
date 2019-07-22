@@ -1,6 +1,25 @@
 FROM adoptopenjdk/openjdk11-openj9:alpine-jre
 # this image already contains glibc
 
+WORKDIR /tmp
+
+RUN apk add --update --no-cache                                                \
+           bash                                                                \
+           su-exec                                                             \
+           gzip                                                                \
+           nano                                                                \
+           tini                                                                \
+           curl                                                                \
+           xmlstarlet                                                          \
+           fontconfig                                                          \
+           msttcorefonts-installer                                             \
+           ttf-dejavu                                                          \
+           ghostscript                                                         \
+           graphviz                                                            \
+           motif
+RUN update-ms-fonts
+RUN fc-cache -f
+
 ARG UID=1000
 ARG GID=1000
 ENV JIRA_USER=jira
@@ -124,24 +143,6 @@ ARG LANG_COUNTRY=US
 
 COPY bin $JIRA_SCRIPTS
 
-WORKDIR /tmp
-
-RUN apk add --update --no-cache                                                \
-           bash                                                                \
-           su-exec                                                             \
-           gzip                                                                \
-           nano                                                                \
-           tini                                                                \
-           curl                                                                \
-           xmlstarlet                                                          \
-           fontconfig                                                          \
-           msttcorefonts-installer                                             \
-           ttf-dejavu                                                          \
-           ghostscript                                                         \
-           graphviz                                                            \
-           motif
-RUN update-ms-fonts
-RUN fc-cache -f
 RUN mkdir -p $JIRA_HOME $JIRA_INSTALL $JIRA_LIB
 RUN addgroup -g $CONTAINER_GID $JIRA_GROUP
 
