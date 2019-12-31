@@ -5,30 +5,6 @@ WORKDIR /tmp
 
 ARG UID=1000
 ARG GID=1000
-ENV JIRA_USER=jira
-ENV JIRA_GROUP=jira
-ENV CONTAINER_UID=$UID
-ENV CONTAINER_GID=$GID
-ENV JIRA_CONTEXT_PATH=ROOT
-ENV JIRA_HOME=/var/atlassian/jira
-ENV JIRA_INSTALL=/opt/jira
-ENV JIRA_SCRIPTS=/usr/local/share/atlassian
-ENV JRE_HOME=$JAVA_HOME
-# Fix for this issue - https://jira.atlassian.com/browse/JRASERVER-46152
-ENV _RUNJAVA=java
-ENV JIRA_LIB=$JIRA_INSTALL/lib
-ENV MYSQL_DRIVER_VERSION=2.4.2
-ENV MYSQL_FILE=mariadb-java-client-$MYSQL_DRIVER_VERSION.jar
-ENV MYSQL_DOWNLOAD_URL=https://downloads.mariadb.com/Connectors/java/connector-java-$MYSQL_DRIVER_VERSION/$MYSQL_FILE
-ENV POSTGRESQL_DRIVER_VERSION=42.2.9
-ENV POSTGRESQL_FILE=postgresql-$POSTGRESQL_DRIVER_VERSION.jar
-ENV POSTGRESQL_DOWNLOAD_URL=https://jdbc.postgresql.org/download/$POSTGRESQL_FILE
-ENV LE_DOWNLOAD_URL=https://letsencrypt.org/certs/
-ENV LE_CROSS_3=lets-encrypt-x3-cross-signed.der
-ENV KEYSTORE=$JRE_HOME/lib/security/cacerts
-ENV JIRA_DOWNLOAD_URL=https://www.atlassian.com/software/jira/downloads/binary/
-ENV SSLPOKE_URL=https://confluence.atlassian.com/kb/files/779355358/779355357/1/1441897666313/SSLPoke.class
-
 # Version
 ARG JIRA_VERSION=8.6.0
 ARG JIRA_PRODUCT=jira-software
@@ -36,6 +12,30 @@ ARG JIRA_PRODUCT=jira-software
 # Language
 ARG LANG_LANGUAGE=en
 ARG LANG_COUNTRY=US
+
+ENV JIRA_USER=jira \
+    JIRA_GROUP=jira \
+    CONTAINER_UID=$UID \
+    CONTAINER_GID=$GID \
+    JIRA_CONTEXT_PATH=ROOT \
+    JIRA_HOME=/var/atlassian/jira \
+    JIRA_INSTALL=/opt/jira \
+    JIRA_SCRIPTS=/usr/local/share/atlassian \
+    JRE_HOME=$JAVA_HOME \
+    JIRA_LIB=$JIRA_INSTALL/lib \
+    MYSQL_DRIVER_VERSION=2.4.2 \
+    MYSQL_FILE=mariadb-java-client-$MYSQL_DRIVER_VERSION.jar \
+    MYSQL_DOWNLOAD_URL=https://downloads.mariadb.com/Connectors/java/connector-java-$MYSQL_DRIVER_VERSION/$MYSQL_FILE \
+    POSTGRESQL_DRIVER_VERSION=42.2.9 \
+    POSTGRESQL_FILE=postgresql-$POSTGRESQL_DRIVER_VERSION.jar \
+    POSTGRESQL_DOWNLOAD_URL=https://jdbc.postgresql.org/download/$POSTGRESQL_FILE \
+    LE_DOWNLOAD_URL=https://letsencrypt.org/certs/ \
+    LE_CROSS_3=lets-encrypt-x3-cross-signed.der \
+    KEYSTORE=$JRE_HOME/lib/security/cacerts \
+    JIRA_DOWNLOAD_URL=https://www.atlassian.com/software/jira/downloads/binary/ \
+    SSLPOKE_URL=https://confluence.atlassian.com/kb/files/779355358/779355357/1/1441897666313/SSLPoke.class \
+    _RUNJAVA=java
+# _RUNJAVA is a fix for this issue - https://jira.atlassian.com/browse/JRASERVER-46152
 
 COPY bin $JIRA_SCRIPTS
 
